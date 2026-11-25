@@ -18,7 +18,7 @@ jobs:
         with:
           fetch-depth: 0 # Needed to check actual git commit dates of files
 
-      - name: Update mainPage.html and 20LastDocuments.html
+      - name: Update index.html and 20LastDocuments.html
         run: |
           python3 - << 'EOF'
           import glob, os, re, subprocess
@@ -32,17 +32,17 @@ jobs:
           pdfs.sort(key=get_commit_time, reverse=True)
 
           if pdfs:
-              # 1. Update mainPage.html with the single newest PDF
+              # 1. Update index.html with the single newest PDF
               latest = pdfs[0]
-              with open('mainPage.html', 'r', encoding='utf-8') as f:
-                  main_html = f.read()
-              main_html = re.sub(
+              with open('index.html', 'r', encoding='utf-8') as f:
+                  index_html = f.read()
+              index_html = re.sub(
                   r'id="latest-pdf-link" href="[^"]*"',
                   f'id="latest-pdf-link" href="{latest}"',
-                  main_html
+                  index_html
               )
-              with open('mainPage.html', 'w', encoding='utf-8') as f:
-                  f.write(main_html)
+              with open('index.html', 'w', encoding='utf-8') as f:
+                  f.write(index_html)
 
               # 2. Update 20LastDocuments.html with the top 20 PDFs
               list_items = []
@@ -67,5 +67,5 @@ jobs:
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add mainPage.html 20LastDocuments.html
+          git add index.html 20LastDocuments.html
           git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update PDF links" && git push)
