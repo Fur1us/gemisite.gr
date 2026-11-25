@@ -1,10 +1,9 @@
-name: Update PDF Links
+name: Update PDF Links and Deploy
 
 on:
+  workflow_dispatch:
   push:
-    branches: [ main ] # Change to 'master' if your default branch is master
-    paths:
-      - 'Εισολογισμοι/*.pdf'
+    branches: [ main ]
 
 permissions:
   contents: write
@@ -14,18 +13,20 @@ permissions:
 jobs:
   update-links:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Needed to check actual git commit dates of files
+          fetch-depth: 0
 
       - name: Update index.html and 20LastDocuments.html
         run: |
           python3 - << 'EOF'
           import glob, os, re, subprocess
 
-          # Get all PDFs and sort by their most recent Git commit timestamp (newest first)
           pdfs = glob.glob('Εισολογισμοι/*.pdf')
           def get_commit_time(filepath):
               res = subprocess.check_output(['git', 'log', '-1', '--format=%ct', '--', filepath])
@@ -34,7 +35,6 @@ jobs:
           pdfs.sort(key=get_commit_time, reverse=True)
 
           if pdfs:
-              # 1. Update index.html with the single newest PDF
               latest = pdfs[0]
               with open('index.html', 'r', encoding='utf-8') as f:
                   index_html = f.read()
@@ -46,7 +46,6 @@ jobs:
               with open('index.html', 'w', encoding='utf-8') as f:
                   f.write(index_html)
 
-              # 2. Update 20LastDocuments.html with the top 20 PDFs
               list_items = []
               for pdf in pdfs[:20]:
                   name = os.path.basename(pdf)
@@ -71,12 +70,15 @@ jobs:
           git config --local user.name "github-actions[bot]"
           git add index.html 20LastDocuments.html
           git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update PDF links" && git push)
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: '.'
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
