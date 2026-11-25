@@ -1,0 +1,71 @@
+name: Update PDF Links
+
+on:
+  push:
+    branches: [ main ] # Change to 'master' if your default branch is master
+    paths:
+      - 'Εισολογισμοι/*.pdf'
+
+permissions:
+  contents: write
+
+jobs:
+  update-links:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Needed to check actual git commit dates of files
+
+      - name: Update mainPage.html and left-sidebar.html
+        run: |
+          python3 - << 'EOF'
+          import glob, os, re, subprocess
+
+          # Get all PDFs and sort by their most recent Git commit timestamp (newest first)
+          pdfs = glob.glob('Εισολογισμοι/*.pdf')
+          def get_commit_time(filepath):
+              res = subprocess.check_output(['git', 'log', '-1', '--format=%ct', '--', filepath])
+              return int(res.strip() or 0)
+
+          pdfs.sort(key=get_commit_time, reverse=True)
+
+          if pdfs:
+              # 1. Update mainPage.html with the single newest PDF
+              latest = pdfs[0]
+              with open('mainPage.html', 'r', encoding='utf-8') as f:
+                  main_html = f.read()
+              main_html = re.sub(
+                  r'id="latest-pdf-link" href="[^"]*"',
+                  f'id="latest-pdf-link" href="{latest}"',
+                  main_html
+              )
+              with open('mainPage.html', 'w', encoding='utf-8') as f:
+                  f.write(main_html)
+
+              # 2. Update left-sidebar.html with the top 20 PDFs
+              list_items = []
+              for pdf in pdfs[:20]:
+                  name = os.path.basename(pdf)
+                  list_items.append(f'<li><a href="{pdf}" target="_blank">{name}</a></li>')
+              list_html = '\n\t\t\t\t\t\t\t\t\t'.join(list_items)
+
+              with open('left-sidebar.html', 'r', encoding='utf-8') as f:
+                  list_page = f.read()
+              list_page = re.sub(
+                  r'<!-- PDF_LIST_START -->.*?<!-- PDF_LIST_END -->',
+                  f'<!-- PDF_LIST_START -->\n\t\t\t\t\t\t\t\t\t{list_html}\n\t\t\t\t\t\t\t\t\t<!-- PDF_LIST_END -->',
+                  list_page,
+                  flags=re.DOTALL
+              )
+              with open('left-sidebar.html', 'w', encoding='utf-8') as f:
+                  f.write(list_page)
+          EOF
+
+      - name: Commit and push updated HTML
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add mainPage.html left-sidebar.html
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update PDF links" && git push)
