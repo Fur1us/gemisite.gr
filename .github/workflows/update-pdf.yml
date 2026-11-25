@@ -23,7 +23,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Update index.html and 20LastDocuments.html
+      - name: Prune oldest PDFs and update HTML
         run: |
           python3 - << 'EOF'
           import glob, os, re, subprocess
@@ -33,13 +33,20 @@ jobs:
               res = subprocess.check_output(['git', 'log', '-1', '--format=%ct', '--', filepath])
               return int(res.strip() or 0)
 
+          # Sort newest first
           pdfs.sort(key=get_commit_time, reverse=True)
+
+          # Delete any PDFs beyond the 20 most recent
+          if len(pdfs) > 20:
+              for old_pdf in pdfs[20:]:
+                  os.remove(old_pdf)
+              pdfs = pdfs[:20]
 
           if pdfs:
               latest = pdfs[0]
               list_items = [
                   f'<li><a href="{pdf}" target="_blank">{os.path.basename(pdf)}</a></li>'
-                  for pdf in pdfs[:20]
+                  for pdf in pdfs
               ]
               list_html = '\n\t\t\t\t\t\t\t\t\t'.join(list_items)
           else:
@@ -70,12 +77,12 @@ jobs:
               f.write(list_page)
           EOF
 
-      - name: Commit and push updated HTML
+      - name: Commit and push changes
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add index.html 20LastDocuments.html
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update PDF links" && git push)
+          git add -A index.html 20LastDocuments.html Εισολογισμοι/
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update PDFs and links" && git push)
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
