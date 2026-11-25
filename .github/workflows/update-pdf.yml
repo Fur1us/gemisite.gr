@@ -18,7 +18,7 @@ jobs:
         with:
           fetch-depth: 0 # Needed to check actual git commit dates of files
 
-      - name: Update mainPage.html and left-sidebar.html
+      - name: Update mainPage.html and 20LastDocuments.html
         run: |
           python3 - << 'EOF'
           import glob, os, re, subprocess
@@ -44,14 +44,14 @@ jobs:
               with open('mainPage.html', 'w', encoding='utf-8') as f:
                   f.write(main_html)
 
-              # 2. Update left-sidebar.html with the top 20 PDFs
+              # 2. Update 20LastDocuments.html with the top 20 PDFs
               list_items = []
               for pdf in pdfs[:20]:
                   name = os.path.basename(pdf)
                   list_items.append(f'<li><a href="{pdf}" target="_blank">{name}</a></li>')
               list_html = '\n\t\t\t\t\t\t\t\t\t'.join(list_items)
 
-              with open('left-sidebar.html', 'r', encoding='utf-8') as f:
+              with open('20LastDocuments.html', 'r', encoding='utf-8') as f:
                   list_page = f.read()
               list_page = re.sub(
                   r'<!-- PDF_LIST_START -->.*?<!-- PDF_LIST_END -->',
@@ -59,7 +59,7 @@ jobs:
                   list_page,
                   flags=re.DOTALL
               )
-              with open('left-sidebar.html', 'w', encoding='utf-8') as f:
+              with open('20LastDocuments.htmll', 'w', encoding='utf-8') as f:
                   f.write(list_page)
           EOF
 
@@ -67,5 +67,5 @@ jobs:
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add mainPage.html left-sidebar.html
+          git add mainPage.html 20LastDocuments.html
           git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update PDF links" && git push)
