@@ -37,32 +37,37 @@ jobs:
 
           if pdfs:
               latest = pdfs[0]
-              with open('index.html', 'r', encoding='utf-8') as f:
-                  index_html = f.read()
-              index_html = re.sub(
-                  r'id="latest-pdf-link" href="[^"]*"',
-                  f'id="latest-pdf-link" href="{latest}"',
-                  index_html
-              )
-              with open('index.html', 'w', encoding='utf-8') as f:
-                  f.write(index_html)
-
-              list_items = []
-              for pdf in pdfs[:20]:
-                  name = os.path.basename(pdf)
-                  list_items.append(f'<li><a href="{pdf}" target="_blank">{name}</a></li>')
+              list_items = [
+                  f'<li><a href="{pdf}" target="_blank">{os.path.basename(pdf)}</a></li>'
+                  for pdf in pdfs[:20]
+              ]
               list_html = '\n\t\t\t\t\t\t\t\t\t'.join(list_items)
+          else:
+              latest = '#'
+              list_html = '<li>Δεν υπάρχουν διαθέσιμοι ισολογισμοί.</li>'
 
-              with open('20LastDocuments.html', 'r', encoding='utf-8') as f:
-                  list_page = f.read()
-              list_page = re.sub(
-                  r'<!-- PDF_LIST_START -->.*?<!-- PDF_LIST_END -->',
-                  f'<!-- PDF_LIST_START -->\n\t\t\t\t\t\t\t\t\t{list_html}\n\t\t\t\t\t\t\t\t\t<!-- PDF_LIST_END -->',
-                  list_page,
-                  flags=re.DOTALL
-              )
-              with open('20LastDocuments.html', 'w', encoding='utf-8') as f:
-                  f.write(list_page)
+          # 1. Update index.html
+          with open('index.html', 'r', encoding='utf-8') as f:
+              index_html = f.read()
+          index_html = re.sub(
+              r'id="latest-pdf-link" href="[^"]*"',
+              f'id="latest-pdf-link" href="{latest}"',
+              index_html
+          )
+          with open('index.html', 'w', encoding='utf-8') as f:
+              f.write(index_html)
+
+          # 2. Update 20LastDocuments.html
+          with open('20LastDocuments.html', 'r', encoding='utf-8') as f:
+              list_page = f.read()
+          list_page = re.sub(
+              r'<!-- PDF_LIST_START -->.*?<!-- PDF_LIST_END -->',
+              f'<!-- PDF_LIST_START -->\n\t\t\t\t\t\t\t\t\t{list_html}\n\t\t\t\t\t\t\t\t\t<!-- PDF_LIST_END -->',
+              list_page,
+              flags=re.DOTALL
+          )
+          with open('20LastDocuments.html', 'w', encoding='utf-8') as f:
+              f.write(list_page)
           EOF
 
       - name: Commit and push updated HTML
