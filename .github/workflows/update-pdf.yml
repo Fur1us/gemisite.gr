@@ -15,74 +15,65 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build:
+  update-links:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Prune oldest PDFs and update HTML
+      - name: Update index.html and 20LastDocuments.html
         run: |
           python3 - << 'EOF'
           import glob, os, re, subprocess
 
-          pdfs = glob.glob('Εισολογισμοι/*.pdf')
+          pdfs = glob.glob('Ισολογισμοι/*.pdf')
           def get_commit_time(filepath):
               res = subprocess.check_output(['git', 'log', '-1', '--format=%ct', '--', filepath])
               return int(res.strip() or 0)
 
-          # Sort newest first
           pdfs.sort(key=get_commit_time, reverse=True)
-
-          # Delete any PDFs beyond the 20 most recent
-          if len(pdfs) > 20:
-              for old_pdf in pdfs[20:]:
-                  os.remove(old_pdf)
-              pdfs = pdfs[:20]
 
           if pdfs:
               latest = pdfs[0]
-              list_items = [
-                  f'<li><a href="{pdf}" target="_blank">{os.path.basename(pdf)}</a></li>'
-                  for pdf in pdfs
-              ]
+              with open('index.html', 'r', encoding='utf-8') as f:
+                  index_html = f.read()
+              index_html = re.sub(
+                  r'id="latest-pdf-link" href="[^"]*"',
+                  f'id="latest-pdf-link" href="{latest}"',
+                  index_html
+              )
+              with open('index.html', 'w', encoding='utf-8') as f:
+                  f.write(index_html)
+
+              list_items = []
+              for pdf in pdfs[:20]:
+                  name = os.path.basename(pdf)
+                  list_items.append(f'<li><a href="{pdf}" target="_blank">{name}</a></li>')
               list_html = '\n\t\t\t\t\t\t\t\t\t'.join(list_items)
-          else:
-              latest = '#'
-              list_html = '<li>Δεν υπάρχουν διαθέσιμοι ισολογισμοί.</li>'
 
-          # 1. Update index.html
-          with open('index.html', 'r', encoding='utf-8') as f:
-              index_html = f.read()
-          index_html = re.sub(
-              r'id="latest-pdf-link" href="[^"]*"',
-              f'id="latest-pdf-link" href="{latest}"',
-              index_html
-          )
-          with open('index.html', 'w', encoding='utf-8') as f:
-              f.write(index_html)
-
-          # 2. Update 20LastDocuments.html
-          with open('20LastDocuments.html', 'r', encoding='utf-8') as f:
-              list_page = f.read()
-          list_page = re.sub(
-              r'<!-- PDF_LIST_START -->.*?<!-- PDF_LIST_END -->',
-              f'<!-- PDF_LIST_START -->\n\t\t\t\t\t\t\t\t\t{list_html}\n\t\t\t\t\t\t\t\t\t<!-- PDF_LIST_END -->',
-              list_page,
-              flags=re.DOTALL
-          )
-          with open('20LastDocuments.html', 'w', encoding='utf-8') as f:
-              f.write(list_page)
+              with open('20LastDocuments.html', 'r', encoding='utf-8') as f:
+                  list_page = f.read()
+              list_page = re.sub(
+                  r'<!-- PDF_LIST_START -->.*?<!-- PDF_LIST_END -->',
+                  f'<!-- PDF_LIST_START -->\n\t\t\t\t\t\t\t\t\t{list_html}\n\t\t\t\t\t\t\t\t\t<!-- PDF_LIST_END -->',
+                  list_page,
+                  flags=re.DOTALL
+              )
+              with open('20LastDocuments.html', 'w', encoding='utf-8') as f:
+                  f.write(list_page)
           EOF
 
-      - name: Commit and push changes
+      - name: Commit and push updated HTML
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add -A index.html 20LastDocuments.html Εισολογισμοι/
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update PDFs and links" && git push)
+          git add index.html 20LastDocuments.html
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update PDF links" && git push)
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
@@ -92,13 +83,6 @@ jobs:
         with:
           path: '.'
 
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
